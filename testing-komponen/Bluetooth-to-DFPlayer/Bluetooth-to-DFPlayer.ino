@@ -1,3 +1,4 @@
+
 /*
  * Trying to make an app to integrate so that in can control the DF player through Bluetooth
  * First step: Make an app that can send text data to the Arduino and view it with the Serial Monitor
@@ -7,6 +8,7 @@
 
 // Import Necessary libraries
 #include <SoftwareSerial.h>
+//#include <NeoSWSerial.h>
 #include <FastLED.h>
 
 // DFPlayer Variables
@@ -26,6 +28,10 @@ CRGB leds[NUM_LEDS];
 SoftwareSerial Bt(2,4);
 SoftwareSerial DFPlayer(11,10);
 
+//Neo
+//NeoSWSerial Bt(2,4);
+//NeoSWSerial DFPlayer(11,10);
+
 // Initialize data
 String btData = "";
 boolean isPlaying = true;
@@ -34,14 +40,16 @@ void setup() {
 
   // Setup serial for debug
   Serial.begin(9600);
+  delay(100);
 
   // Setup DFPlayer
   DFPlayer.begin(9600);
-  delay(10);
+  delay(100);
 
   // Setup serial for bluetooth connection
   Bt.begin(9600);
-
+  delay(100);
+  
   // Init LED
   FastLED.addLeds<WS2812B, DATA_PIN, GRB> (leds, NUM_LEDS);
 
@@ -70,11 +78,13 @@ void loop() {
 
     if (isPlaying) {
       Serial.println("Pause ... ");
+      Bt.println("Pause ... ");
       setColor(0);
       pause();
       isPlaying = false;
     } else {
       Serial.println("Play ... ");
+      Bt.println("Play ... ");
       setColor(255);
       play();
       isPlaying = true;
