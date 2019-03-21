@@ -12,8 +12,11 @@
 
 #include <Math.h>
 
-int trigPin = 11;    // Trigger
-int echoPin = 12;    // Echo
+//int trigPin = 11;    // Trigger
+//int echoPin = 12;    // Echo
+#define trigPin D6
+#define echoPin D7
+
 long duration;
 double y, cm, inches;
  

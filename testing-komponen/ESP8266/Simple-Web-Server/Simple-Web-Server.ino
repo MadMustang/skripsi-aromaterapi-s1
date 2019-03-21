@@ -22,6 +22,42 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   
   // Start wifi connection
+  connectToWifi();
+
+  // Add server route
+  server.on("/", [](){server.send(200, "text/plain", "Hello world");});
+  server.on("/toggle", toggleLED);
+
+  // Start server
+  server.begin();
+
+}
+
+void loop() {
+
+  // Run request handler if connected to Wi-Fi
+  while(WiFi.status() == WL_CONNECTED) {
+
+    // Handle requests
+    server.handleClient();
+  }
+
+  // Reconnect
+  connectToWifi();
+
+}
+
+// LED toggle
+void toggleLED() {
+  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+  server.send(204, "");
+  Serial.println(millis());
+}
+
+// In case if disconnect
+void connectToWifi(){
+
+  // Start wifi connection
   WiFi.begin(ssid, password);
 
   // Wait until connection is established
@@ -37,26 +73,5 @@ void setup() {
   Serial.println("");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
-
-  // Add server route
-  server.on("/", [](){server.send(200, "text/plain", "Hello world");});
-  server.on("/toggle", toggleLED);
-
-  // Start server
-  server.begin();
-
-}
-
-void loop() {
-
-  // Handle requests
-  server.handleClient();
-
-}
-
-void toggleLED() {
-  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-  server.send(204, "");
-  Serial.println(millis());
 }
 
