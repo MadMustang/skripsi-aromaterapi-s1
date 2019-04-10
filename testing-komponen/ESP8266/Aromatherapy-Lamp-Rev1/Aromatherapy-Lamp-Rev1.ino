@@ -20,8 +20,9 @@
 
 // MQTT Topics - Subscribe
 char* setLEDColorTopic = "led/color";
+char* ledSwitchTopic = "led/switch";
 char* setLEDBrightTopic = "led/brightness";
-char* relaySwitchTopic = "switch";
+char* relaySwitchTopic = "humidifier/switch";
 char* dfPlayTrackTopic = "dfplayer/playtrack";
 char* dfPlayPauseTopic = "dfplayer/toggle";
 char* dfVolume = "dfplayer/volume";
@@ -30,6 +31,7 @@ char* dfVolume = "dfplayer/volume";
 char* waterLevelTopic = "Sensor";
 char* setLEDBrightStatTopic = "led/brightness/status";
 char* dfplayerStatusTopic = "dfplayer/status";
+char* relayStatusTopic = "humidifier/status";
 
 // Wifi Info
 char* ssid = "Ena Komiya";
@@ -64,6 +66,7 @@ int b = 0;
 long echoDuration;
 double cmHeight;
 int levelPercent;
+int lastLevelPercent = 0;
 double fullHeight = 4;
 double emptyHeight = 8;
 
@@ -82,8 +85,8 @@ SoftwareSerial DFPlayer(DF_RX, DF_TX);
 // Humidifier Relay
 #define HUM_PIN D5
 
-// Delay variables (in seconds)
-unsigned long waterLevelDelay = 5;
+// Delay variables (in miliseconds)
+unsigned long waterLevelDelay = 5000;
 
 //------------------------------- Main Program ---------------------------------
 
@@ -143,7 +146,7 @@ void loop() {
 
   // Water Level
   now = millis();
-  if (now - last > (waterLevelDelay * 1000)) {
+  if (now - last > waterLevelDelay) {
     waterLevel();
     last = millis();
   }
@@ -181,6 +184,7 @@ void connectAsClient() {
   //client.subscribe("test/esp8266");// here is where you later add a wildcard
   client.subscribe(relaySwitchTopic);
   client.subscribe(setLEDColorTopic);
+  client.subscribe(ledSwitchTopic);
   client.subscribe(setLEDBrightTopic);
   client.subscribe(dfPlayTrackTopic);
   client.subscribe(dfPlayPauseTopic);
@@ -213,7 +217,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   // Simple LED
   if (top == relaySwitchTopic) {  // Relay switch
-    ledToggle(mess);
+    relayToggle(mess);
   } else if (top == setLEDColorTopic) { // LED strip color
 
     // Get index of string to seperate data
@@ -226,8 +230,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     
   } else if (top == setLEDBrightTopic) { // LED Strip brightness
 
+    // Pre-process
+    int brightness = mess.toInt();
+    if (brightness < 30) brightness = 30;
+
     // Adjust
-    setLEDBrightness(mess.toInt());
+    setLEDBrightness(brightness);
     
   } else if (top == dfPlayTrackTopic) { // DF player play specific track
 
@@ -272,17 +280,19 @@ void connectToWifi(){
   
 }
 
-//------------------------------- Simple LED ------------------------------
+//----------------------------- Relay Switch ------------------------------
 
-void ledToggle(String toggle) {
+void relayToggle(String toggle) {
 
   // Validate
   if (toggle == "off"){
       digitalWrite(LED_BUILTIN, HIGH);
       digitalWrite(HUM_PIN, HIGH);
+      client.publish(relayStatusTopic, "Off");
     } else if (toggle == "on") {
       digitalWrite(LED_BUILTIN, LOW);
       digitalWrite(HUM_PIN, LOW);
+      client.publish(relayStatusTopic, "On");
     }
   
 }
@@ -313,9 +323,18 @@ void waterLevel() {
   if (levelPercent <= 0) levelPercent = 0;
 
   // Publish to broker
+//  if (levelPercent != lastLevelPercent) {
+//    client.publish(waterLevelTopic, String(levelPercent).c_str() );
+//    delay(10);
+//    client.publish("water/debug", String(cmHeight).c_str() );
+//    lastLevelPercent = levelPercent;
+//  }
+
   client.publish(waterLevelTopic, String(levelPercent).c_str() );
   delay(10);
   client.publish("water/debug", String(cmHeight).c_str() );
+  lastLevelPercent = levelPercent;
+ 
   
 }
 
