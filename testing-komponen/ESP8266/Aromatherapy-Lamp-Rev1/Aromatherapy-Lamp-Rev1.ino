@@ -36,6 +36,7 @@ char* relayStatusTopic = "humidifier/status";
 // Wifi Info
 char* ssid = "Ena Komiya";
 char* password = "gigabyte";
+#define MODE_PIN D4
 
 // MQTT Broker
 const char* mqttServer = "m16.cloudmqtt.com";
@@ -53,7 +54,7 @@ unsigned long last = 0;
 
 // Color LED Variables
 #define PIN D3
-#define LED_COUNT 4
+#define LED_COUNT 40
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800);
 int ledBrightness = 255;
 int r = 0;
@@ -86,7 +87,7 @@ SoftwareSerial DFPlayer(DF_RX, DF_TX);
 #define HUM_PIN D5
 
 // Delay variables (in miliseconds)
-unsigned long waterLevelDelay = 5000;
+unsigned long timedDelay = 5000;
 
 //------------------------------- Main Program ---------------------------------
 
@@ -97,6 +98,9 @@ void setup() {
   DFPlayer.begin(9600);
   delay(100);
   dfInit();
+
+  // Mode Select
+  
 
   // LED initial
   pinMode(LED_BUILTIN, OUTPUT);
@@ -144,11 +148,24 @@ void loop() {
   // Handle requests
   client.loop();
 
-  // Water Level
+  // Timed operations
   now = millis();
-  if (now - last > waterLevelDelay) {
+  if (now - last > timedDelay) {
+
+    // Debug MQTT connection
+    Serial.print("Client connected status: ");
+    Serial.println(client.connected());
+
+    // Validate connection status
+    if(!client.connected())
+      connectAsClient();
+    
+    // Water Level
     waterLevel();
+
+    // Reset timer
     last = millis();
+    
   }
 
 }
@@ -167,12 +184,12 @@ void connectAsClient() {
     Serial.println("Connecting to MQTT...");
 
     // Validate
-    if(client.connect("ESP8266Client", mqttUser, mqttPassword ))
-      Serial.println("connected");
+    if(client.connect("ESP8266Client", mqttUser, mqttPassword, "DC", 0, false, "Device Disconnected"))
+      Serial.println("Connected");
     else {
-      Serial.print("failed state ");
-      Serial.print(client.state());
-      delay(2000);
+      Serial.print("Failed state code: ");
+      Serial.println(client.state());
+      delay(3000);
     }
   }
 
@@ -258,7 +275,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 //------------------------------- Wi-Fi -----------------------------------
 
-// In case if disconnect
+// Connect to Wi-Fi
 void connectToWifi(){
 
   // Start wifi connection
@@ -277,6 +294,13 @@ void connectToWifi(){
   Serial.println("");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
+  
+}
+
+// Check for Setup or Operation Mode
+boolean modeSelect() {
+
+  
   
 }
 
