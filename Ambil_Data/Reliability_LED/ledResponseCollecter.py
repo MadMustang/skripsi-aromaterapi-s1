@@ -44,6 +44,7 @@ def collectorUser(client, userdata, message):
     print("[{}]".format(str(dataIndex)))
     data = str(message.payload.decode("utf-8"))
     data = data.split("|")
+    #print(str(message.size))
     print("User")
     print("Red:", data[0])
     print("Green:", data[1])
@@ -100,7 +101,7 @@ client.message_callback_add(collectionTopic2, collectorDevice)
 client.loop_start()
 while True:
 
-    if dataIndex > 25:
+    if dataIndex > 5:
         client.loop_stop()
         print(df.head(20))
         print("Generating", fileTitle, "...")

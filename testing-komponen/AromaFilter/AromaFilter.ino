@@ -1,3 +1,5 @@
+
+
 /*
    Multifunctional Aromatherapy Rev 0.1
 
@@ -15,7 +17,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <SoftwareSerial.h>
 #include <Math.h>
-
+#include <MedianFilterLib.h>
 
 //-------------------------Global Variables ---------------------------------
 
@@ -38,7 +40,7 @@ char* relayStatusTopic = "humidifier/status";
 // Wifi Info
 char* ssid = "Ena Komiya";
 char* password = "gigabyte";
-
+#define MODE_PIN D4
 
 // MQTT Broker
 const char* mqttServer = "m16.cloudmqtt.com";
@@ -92,7 +94,7 @@ int currentVolume = normalVolumeLevel;
 #define HUM_PIN D5
 
 // Delay variables (in miliseconds)
-unsigned long timedDelay = 10000;
+unsigned long timedDelay = 5000;
 
 //----------------------------- Relay Switch ------------------------------
 
@@ -100,16 +102,17 @@ void relayToggle(String toggle) {
 
   // Validate
   if (toggle == "off") {
-    //digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(LED_BUILTIN, HIGH);
     digitalWrite(HUM_PIN, HIGH);
-    if (client.connected()) client.publish(relayStatusTopic, "Off");
+    client.publish(relayStatusTopic, "Off");
   } else if (toggle == "on") {
-    //digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(LED_BUILTIN, LOW);
     digitalWrite(HUM_PIN, LOW);
-    if (client.connected()) client.publish(relayStatusTopic, "On");
+    client.publish(relayStatusTopic, "On");
   }
 
 }
+
 
 //------------------------------- MQTT ------------------------------------
 
@@ -167,7 +170,6 @@ void connectToWifi() {
   {
     Serial.println("Connecting ... ");
     delay(1000);
-    
   }
 
   // Display message during established connection
@@ -190,23 +192,33 @@ boolean modeSelect() {
 
 void waterLevel() {
 
-  // The sensor is triggered by a HIGH pulse of 10 or more microseconds.
-  // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(3);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
+  double dataUltra[5];
+  MedianFilter<double> medianFilter(5);
+  
+  for (int i = 0; i < 5; i++) {
+      // The sensor is triggered by a HIGH pulse of 10 or more microseconds.
+    // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(3);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
 
-  // Read the signal from the sensor: a HIGH pulse whose
-  // duration is the time (in microseconds) from the sending
-  // of the ping to the reception of its echo off of an object.
-  echoDuration = pulseIn(echoPin, HIGH);
+    // Read the signal from the sensor: a HIGH pulse whose
+    // duration is the time (in microseconds) from the sending
+    // of the ping to the reception of its echo off of an object.
+    double echo = pulseIn(echoPin, HIGH);
 
-  // Debug Echo Duration
-  Serial.print("T (microseconds): ");
-  Serial.println(echoDuration);
+    // Debug Echo Duration
+    Serial.print("T (microseconds): ");
+    Serial.println(echo);
 
+    medianFilter.AddValue(echo);
+    delay(20);
+  }
+
+  echoDuration = medianFilter.GetFiltered();
+  
   // Convert the time into a distance
   //cmHeight = (echoDuration/2) / 29.1;     // Divide by 29.1 or multiply by 0.0343
   double cmDiagonal = 0.017 * echoDuration;
@@ -274,7 +286,13 @@ void setLEDColor(int red, int green, int blue) {
   r = red;
   g = green;
   b = blue;
+  String feedback = String(r) + "|" + String(g) + "|" + String(b);
 
+
+  delay(100);
+
+  // Send feedback data
+  client.publish(setLEDColorStatTopic, String(feedback).c_str());
 
 }
 
@@ -461,11 +479,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     int greenIndex = mess.indexOf("|", redIndex + 1);
     int blueIndex = mess.indexOf("|", greenIndex + 1);
 
-    String feedback = String(redIndex) + "|" + String(greenIndex) + "|" + String(blueIndex);
-
-    // Send feedback data
-    client.publish(setLEDColorStatTopic, String(feedback).c_str());
-
     // Send to Set Led color function
     setLEDColor(mess.substring(0, redIndex).toInt(), mess.substring(redIndex + 1, greenIndex).toInt(), mess.substring(greenIndex + 1, blueIndex).toInt());
 
@@ -479,20 +492,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     setLEDBrightness(brightness);
 
   } else if (top == dfPlayTrackTopic) { // DF player play specific track
-
-    int trackNum = mess.toInt();
-    String trackTitle = "";
-
-    if (trackNum == 1) trackTitle = "Rain";
-    else if (trackNum == 2) trackTitle = "FirePlace";
-    else if (trackNum == 3) trackTitle = "Storm";
-    else if (trackNum == 4) trackTitle = "River";
-    else if (trackNum == 5) trackTitle = "Forest";
-    else if (trackNum == 6) trackTitle = "WaterFall";
-    else if (trackNum == 8) trackTitle = "Night";
-    else trackTitle = "Undefined";
-
-    client.publish(dfplayerStatusTopic, String("Playing "+ trackTitle).c_str());
 
     // Check if playing
     if (dfPlayerIsPlaying()) {
@@ -570,10 +569,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     delay(100);
     dfInit();
 
+    // Mode Select
+
 
     // LED initial
-    //pinMode(LED_BUILTIN, OUTPUT);
-    //digitalWrite(LED_BUILTIN, HIGH);
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, HIGH);
 
     // Relay initial
     pinMode(HUM_PIN, OUTPUT);
