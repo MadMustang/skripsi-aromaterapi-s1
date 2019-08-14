@@ -1,5 +1,5 @@
 /*
-   Multifunctional Aromatherapy Rev 0.1
+   Multifunctional Aromatherapy Rev 1.0
 
    This will be used to incorporate all of the systems that has already been tested.
    It will use MQTT and make sure that all the systems work normally.
@@ -100,13 +100,13 @@ void relayToggle(String toggle) {
 
   // Validate
   if (toggle == "off") {
-    //digitalWrite(LED_BUILTIN, HIGH);
-    digitalWrite(HUM_PIN, HIGH);
     if (client.connected()) client.publish(relayStatusTopic, "Off");
+    digitalWrite(HUM_PIN, HIGH);
+    
   } else if (toggle == "on") {
-    //digitalWrite(LED_BUILTIN, LOW);
-    digitalWrite(HUM_PIN, LOW);
     if (client.connected()) client.publish(relayStatusTopic, "On");
+    digitalWrite(HUM_PIN, LOW);
+    
   }
 
 }
